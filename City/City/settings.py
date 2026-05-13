@@ -127,6 +127,7 @@ EMAIL_PORT = 587
 EMAIL_USE_TLS = True
 EMAIL_HOST_USER = os.getenv('EMAIL_USER')
 EMAIL_HOST_PASSWORD = os.getenv('EMAIL_PASS')
+DEFAULT_FROM_EMAIL = os.environ.get('EMAIL_HOST_USER')
 
 
 # 1. Django REST Framework Settings
