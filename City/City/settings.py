@@ -153,7 +153,7 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
     "https://offzon.vercel.app", 
 ]
-
+CORS_ALLOW_CREDENTIALS = True
 
 
 DATABASES = {
@@ -164,3 +164,4 @@ DATABASES = {
     }
 AUTH_USER_MODEL = 'authentication.CustomShopUser'
 
+APPEND_SLASH = False
