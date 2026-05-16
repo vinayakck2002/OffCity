@@ -6,7 +6,7 @@ from .models import *
 class LocationSerializer(serializers.ModelSerializer):
     class Meta:
         model = Location
-        fields = ['id', 'name']
+        fields = ['id', 'name','is_active']
 class RegisterSerializer(serializers.Serializer):
     owner_name = serializers.CharField(max_length=100)
     business_name = serializers.CharField(max_length=100)

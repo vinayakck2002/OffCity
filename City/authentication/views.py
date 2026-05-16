@@ -42,6 +42,11 @@ class AdminLocationView(generics.ListCreateAPIView):
     serializer_class = LocationSerializer
     permission_classes = [IsSuperAdmin] # Admin 
 
+class AdminLocationDetailView(generics.RetrieveUpdateAPIView):#Get Single, Edit & Disable Location
+    queryset = Location.objects.all()
+    serializer_class = LocationSerializer
+    permission_classes = [IsSuperAdmin]
+
 
 class RegisterView(APIView):
     def post(self, request):

@@ -12,7 +12,8 @@ urlpatterns = [
     path('business/locations/',PublicLocationListView.as_view(), name='public-locations'), 
 
     path('admin/login/', AdminLoginView.as_view(), name='admin-login'),
-    path('admin/locations/',AdminLocationView.as_view(), name='admin-locations'), 
+    path('admin/locations/',AdminLocationView.as_view(), name='admin-locations'),
+    path('admin/locations/<int:pk>/', AdminLocationDetailView.as_view(), name='admin-location-detail'), 
 
 
 
