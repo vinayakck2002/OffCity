@@ -6,14 +6,17 @@ from django.core.mail import send_mail
 from django.conf import settings
 from django.contrib.auth.hashers import check_password
 from rest_framework_simplejwt.tokens import RefreshToken
-from rest_framework.exceptions import PermissionDenied
+from rest_framework.exceptions import PermissionDenied 
 from .models import PasswordResetOTP
-from .serializers import ForgotPasswordSerializer, ResetPasswordSerializer
+from .serializers import *
 import random
 from rest_framework.permissions import IsAuthenticated
-from .models import TemporaryRegistration, CustomShopUser, Shop
-from .serializers import RegisterSerializer, VerifyOTPSerializer, LoginSerializer
+from .models import *
 from datetime import timedelta
+from django.contrib.auth import authenticate
+from .permissions import IsShopOwner, IsSuperAdmin
+from rest_framework import generics
+from rest_framework.permissions import AllowAny
 
 def get_tokens_for_user(user):
     refresh = RefreshToken.for_user(user)
@@ -21,23 +24,52 @@ def get_tokens_for_user(user):
         'refresh': str(refresh),
         'access': str(refresh.access_token),
     }
+# ---------------------------------------------
+# 1. PUBLIC API 
+# ---------------------------------------------
+class PublicLocationListView(generics.ListAPIView):
+    # ListAPIView aayathu kondu GET mathrame work aavu (POST work aavilla)
+    queryset = Location.objects.all()
+    serializer_class = LocationSerializer
+    permission_classes = [AllowAny]
+    
+# ---------------------------------------------
+# 2. ADMIN API 
+# ---------------------------------------------
+class AdminLocationView(generics.ListCreateAPIView):
+    # ListCreateAPIView aayathu kondu GET-um POST-um work aavum
+    queryset = Location.objects.all()
+    serializer_class = LocationSerializer
+    permission_classes = [IsSuperAdmin] # Admin 
+
 
 class RegisterView(APIView):
     def post(self, request):
         serializer = RegisterSerializer(data=request.data)
         if serializer.is_valid():
             email = serializer.validated_data['email']
-            phone_number = serializer.validated_data['phone_number'] # Phone number edukunnnu
+            phone_number = serializer.validated_data['phone_number'] 
             
+            # --- Location Mandatory Check ---
+            # Serializer-il ninnu location_id edukkunnu
+            location_id = serializer.validated_data.get('location_id')
+            
+            location_obj = Location.objects.filter(id=location_id).first()
+            if not location_obj:
+                # Location illengil udane error return cheyyum
+                return Response({"error": "Selected location does not exist or is missing."}, status=status.HTTP_400_BAD_REQUEST)
+            # --------------------------------
+
             # 1. Check if Email already exists in User table
             if CustomShopUser.objects.filter(email=email).exists():
                 return Response({"error": "Email is already registered."}, status=status.HTTP_400_BAD_REQUEST)
             
-            # 2. Check if Phone Number already exists in Shop table (NEW LOGIC)
+            # 2. Check if Phone Number already exists in Shop table
             if Shop.objects.filter(phone_number=phone_number).exists():
                 return Response({"error": "Phone number is already registered."}, status=status.HTTP_400_BAD_REQUEST)
             
-            temp_reg = serializer.save()
+            # temp_reg save cheyyumbol location pass cheyyunnu
+            temp_reg = serializer.save(location=location_obj)
             
             # Send OTP via Email
             send_mail(
@@ -87,7 +119,8 @@ class VerifyOTPView(APIView):
                 owner=user,
                 owner_name=temp_reg.owner_name,
                 business_name=temp_reg.business_name,
-                phone_number=temp_reg.phone_number
+                phone_number=temp_reg.phone_number,
+                location=temp_reg.location,
             )
             
             # Step 3: Delete Temporary Data
@@ -263,4 +296,70 @@ class LogoutView(APIView):
         response.delete_cookie('access_token')
         response.delete_cookie('refresh_token')
         
+        return response
+    
+class AdminLoginView(APIView):
+    def post(self, request):
+        email = request.data.get('email')
+        password = request.data.get('password')
+
+        # User-ne authenticate cheyyuka
+        user = authenticate(username=email, password=password) # Allengil email=email (ninte custom user model pole)
+
+        if user is not None:
+            # Check if the user is an Admin (Superuser)
+            if user.is_superuser:
+                refresh = RefreshToken.for_user(user)
+                
+                # 1. Response object create cheyyuka (Token body-il kodukkanda)
+                response = Response({
+                    "message": "Admin login successful.",
+                    "is_admin": True
+                }, status=status.HTTP_200_OK)
+                
+                # 2. Access Token Cookie set cheyyuka
+                response.set_cookie(
+                    key='access_token', # Ninte project-ile cookie name enthaano athu kodukkuka (eg: 'jwt', 'access')
+                    value=str(refresh.access_token),
+                    httponly=True,
+                    secure=True,     # PythonAnywhere-il (https) ithu True aayirikkanam
+                    samesite='None', # Frontend-um backend-um vere domain/port aayal 'None' venam
+                    max_age=3600     # 1 hour validity
+                )
+                
+                # 3. Refresh Token Cookie set cheyyuka
+                response.set_cookie(
+                    key='refresh_token',
+                    value=str(refresh),
+                    httponly=True,
+                    secure=True,
+                    samesite='None',
+                    max_age=86400 * 7 # 7 days validity
+                )
+                
+                return response
+            else:
+                # Shop owner aane block cheyyum
+                return Response({
+                    "error": "Access Denied. You are not an Admin."
+                }, status=status.HTTP_403_FORBIDDEN)
+        else:
+            return Response({
+                "error": "Invalid email or password."
+            }, status=status.HTTP_401_UNAUTHORIZED)
+        
+class AdminLogoutView(APIView):
+    # Ee API vilikkanam enkil admin aayirikkanam
+    permission_classes = [IsSuperAdmin] 
+
+    def post(self, request):
+        # Response object undakkunnu
+        response = Response({
+            "message": "Admin logged out successfully."
+        }, status=status.HTTP_200_OK)
+
+        # Login samayathu set cheytha cookies delete cheyyunnu
+        response.delete_cookie('access_token', samesite='None')
+        response.delete_cookie('refresh_token', samesite='None')
+
         return response
