@@ -15,6 +15,9 @@ urlpatterns = [
     path('admin/locations',AdminLocationView.as_view(), name='admin-locations'),
     path('admin/locations/<int:pk>', AdminLocationDetailView.as_view(), name='admin-location-detail'), 
 
+    path('business/token/refresh', BusinessTokenRefreshView.as_view(), name='business-token-refresh'),
+    path('admin/token/refresh', AdminTokenRefreshView.as_view(), name='admin-token-refresh'),
+
 
 
 ]

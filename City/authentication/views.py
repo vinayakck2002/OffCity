@@ -6,6 +6,7 @@ from django.core.mail import send_mail
 from django.conf import settings
 from django.contrib.auth.hashers import check_password
 from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework.exceptions import PermissionDenied 
 from .models import PasswordResetOTP
 from .serializers import *
@@ -296,10 +297,18 @@ class LogoutView(APIView):
     permission_classes = [IsAuthenticated] 
 
     def post(self, request):
-        response = Response({"message": "Successfully logged out."}, status=status.HTTP_200_OK)
-        
-        response.delete_cookie('business_access',samesite='None')
-        response.delete_cookie('business_refresh',samesite='None')
+        try:
+            refresh_token = request.COOKIES.get('business_refresh')
+            if refresh_token:
+                token = RefreshToken(refresh_token)
+                token.blacklist() # Database-il blacklist cheyyunnu
+                
+            response = Response({"message": "Successfully logged out."}, status=status.HTTP_200_OK)
+            response.delete_cookie('business_access', samesite='None')
+            response.delete_cookie('business_refresh', samesite='None')
+            return response
+        except TokenError:
+            return Response({"error": "Invalid token or already logged out."}, status=status.HTTP_400_BAD_REQUEST)
         
         return response
     
@@ -354,17 +363,79 @@ class AdminLoginView(APIView):
             }, status=status.HTTP_401_UNAUTHORIZED)
         
 class AdminLogoutView(APIView):
-    # Ee API vilikkanam enkil admin aayirikkanam
     permission_classes = [IsSuperAdmin] 
 
     def post(self, request):
-        # Response object undakkunnu
-        response = Response({
-            "message": "Admin logged out successfully."
-        }, status=status.HTTP_200_OK)
+        try:
+            refresh_token = request.COOKIES.get('admin_refresh')
+            if refresh_token:
+                token = RefreshToken(refresh_token)
+                token.blacklist() # Admin token database-il blacklist cheyyunnu
+                
+            response = Response({"message": "Admin logged out successfully."}, status=status.HTTP_200_OK)
+            response.delete_cookie('admin_access', samesite='None')
+            response.delete_cookie('admin_refresh', samesite='None')
+            return response
+        except TokenError:
+            return Response({"error": "Invalid token or already logged out."}, status=status.HTTP_400_BAD_REQUEST)
+        
+class BusinessTokenRefreshView(APIView):
+    permission_classes = [AllowAny] 
 
-        # Login samayathu set cheytha cookies delete cheyyunnu
-        response.delete_cookie('admin_access', samesite='None')
-        response.delete_cookie('admin_refresh', samesite='None')
+    def post(self, request):
+        
+        refresh_token = request.COOKIES.get('business_refresh')
 
-        return response
+        if not refresh_token:
+            return Response({"error": "Refresh token missing. Please login again."}, status=status.HTTP_401_UNAUTHORIZED)
+
+        try:
+            token = RefreshToken(refresh_token)
+            new_access_token = str(token.access_token)
+
+            response = Response({"message": "Token refreshed successfully."}, status=status.HTTP_200_OK)
+
+            response.set_cookie(
+                key='business_access',
+                value=new_access_token,
+                httponly=True,
+                secure=True, 
+                samesite='None',
+                max_age=3600
+            )
+
+            return response
+            
+        except TokenError:
+            return Response({"error": "Refresh token expired or invalid. Please login again."}, status=status.HTTP_401_UNAUTHORIZED)
+        
+
+class AdminTokenRefreshView(APIView):
+    permission_classes = [AllowAny] 
+
+    def post(self, request):
+        # ബ്രൗസറിൽ നിന്ന് Admin-ന്റെ പഴയ refresh token എടുക്കുന്നു
+        refresh_token = request.COOKIES.get('admin_refresh')
+
+        if not refresh_token:
+            return Response({"error": "Admin refresh token missing. Please login again."}, status=status.HTTP_401_UNAUTHORIZED)
+
+        try:
+            token = RefreshToken(refresh_token)
+            new_access_token = str(token.access_token)
+
+            response = Response({"message": "Admin token refreshed successfully."}, status=status.HTTP_200_OK)
+
+            response.set_cookie(
+                key='admin_access',
+                value=new_access_token,
+                httponly=True,
+                secure=True, 
+                samesite='None',
+                max_age=3600
+            )
+
+            return response
+            
+        except TokenError:
+            return Response({"error": "Admin refresh token expired or invalid. Please login again."}, status=status.HTTP_401_UNAUTHORIZED)
