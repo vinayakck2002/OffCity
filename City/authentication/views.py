@@ -142,19 +142,19 @@ class VerifyOTPView(APIView):
             # Step 6: Tokens Cookie aayi set cheyyunnu
             # httponly=True aayathu kondu JS vazhi aarkkum ithu moshtikkan pattilla
             response.set_cookie(
-                key='access_token',
+                key='business_access',
                 value=tokens['access'],
                 httponly=True,
-                secure=False, # Live server-il (HTTPS) ithu True aakkanam
-                samesite='Lax',
+                secure=True, # Live server-il (HTTPS) ithu True aakkanam
+                samesite='None',
                 max_age=3600 # 1 hour validity
             )
             response.set_cookie(
-                key='refresh_token',
+                key='business_refresh',
                 value=tokens['refresh'],
                 httponly=True,
-                secure=False, 
-                samesite='Lax',
+                secure=True, # Live server-il (HTTPS) ithu True aakkanam
+                samesite='None',
                 max_age=7 * 24 * 3600 # 7 days validity
             )
             
@@ -187,19 +187,19 @@ class LoginView(APIView):
             
             # Cookies set cheyyunnu
             response.set_cookie(
-                key='access_token',
+                key='business_access',
                 value=tokens['access'],
                 httponly=True,
-                secure=False, 
-                samesite='Lax',
+                secure=True, # Live server-il (HTTPS) ithu True aakkanam
+                samesite='None',
                 max_age=3600
             )
             response.set_cookie(
-                key='refresh_token',
+                key='business_refresh',
                 value=tokens['refresh'],
                 httponly=True,
-                secure=False, 
-                samesite='Lax',
+                secure=True, # Live server-il (HTTPS) ithu True aakkanam
+                samesite='None',
                 max_age=7 * 24 * 3600
             )
             
@@ -298,8 +298,8 @@ class LogoutView(APIView):
     def post(self, request):
         response = Response({"message": "Successfully logged out."}, status=status.HTTP_200_OK)
         
-        response.delete_cookie('access_token')
-        response.delete_cookie('refresh_token')
+        response.delete_cookie('business_access',samesite='None')
+        response.delete_cookie('business_refresh',samesite='None')
         
         return response
     
@@ -324,7 +324,7 @@ class AdminLoginView(APIView):
                 
                 # 2. Access Token Cookie set cheyyuka
                 response.set_cookie(
-                    key='access_token', # Ninte project-ile cookie name enthaano athu kodukkuka (eg: 'jwt', 'access')
+                    key='admin_access', # Ninte project-ile cookie name enthaano athu kodukkuka (eg: 'jwt', 'access')
                     value=str(refresh.access_token),
                     httponly=True,
                     secure=True,     # PythonAnywhere-il (https) ithu True aayirikkanam
@@ -334,7 +334,7 @@ class AdminLoginView(APIView):
                 
                 # 3. Refresh Token Cookie set cheyyuka
                 response.set_cookie(
-                    key='refresh_token',
+                    key='admin_refresh',
                     value=str(refresh),
                     httponly=True,
                     secure=True,
@@ -364,7 +364,7 @@ class AdminLogoutView(APIView):
         }, status=status.HTTP_200_OK)
 
         # Login samayathu set cheytha cookies delete cheyyunnu
-        response.delete_cookie('access_token', samesite='None')
-        response.delete_cookie('refresh_token', samesite='None')
+        response.delete_cookie('admin_access', samesite='None')
+        response.delete_cookie('admin_refresh', samesite='None')
 
         return response
